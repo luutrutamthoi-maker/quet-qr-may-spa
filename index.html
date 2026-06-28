@@ -45,7 +45,7 @@
 
 <script>
     // =========================================================================
-    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT CỦA BẠN VÀO GIỮA HAI DẤU NHÁY DƯỚI ĐÂY:
+    // ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT CỦA BẠN:
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRM0_K7bGYMPfBAEPz1lgJrkSLPrbUliVbAx_WmQwlA1f39hcFZgzoN57AuLHO5DcSmQ/exec";
     // =========================================================================
 
@@ -55,16 +55,23 @@
     let html5QrcodeScanner = null;
     let dangXuLyQuet = false;
 
-    // Tạo bộ phát âm thanh bíp tự động bằng code (Không cần file mp3 bên ngoài)
+    // Bộ phát âm thanh bíp ĐÃ ĐƯỢC TỐI ƯU TO VÀ ĐANH HƠN
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function phatTiengBip(duration, frequency, times, delay) {
         let callback = function() {
             let osc = audioCtx.createOscillator();
             let gain = audioCtx.createGain();
-            osc.type = "sine";
+            
+            // Thay đổi kiểu sóng sang "square" (sóng vuông) giúp tiếng kêu đanh, sắc và vang to hơn
+            osc.type = "square"; 
             osc.frequency.value = frequency;
-            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            
+            // Đẩy âm lượng lên mức 1.0 (mức tối đa của trình duyệt web)
+            gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+            
+            // Hạ âm lượng nhỏ dần cực nhanh ở mili-giây cuối để tiếng bíp ngắt dứt khoát, không bị rè
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration/1000);
+            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
@@ -119,14 +126,14 @@
         
         // KIỂM TRA TRÙNG (Nếu đã quét rồi trong phiên làm việc hoặc trên Sheet)
         if (danhSachDaQuet.has(maMaHoa)) {
-            phatTiengBip(100, 600, 2, 150); // Phát 2 tiếng BÍP liên tiếp cảnh báo trùng
+            phatTiengBip(100, 650, 2, 150); // Phát 2 tiếng BÍP liên tiếp to rõ cảnh báo trùng
             capNhatGiaoDienLichSu(maMaHoa, "TRÙNG LẶP", "duplicate-text");
             setTimeout(() => { dangXuLyQuet = false; }, 2000); // Tạm dừng 2 giây rồi cho quét tiếp mã khác
             return;
         }
         
         // NẾU MÃ HỢP LỆ VÀ CHƯA QUÉT
-        phatTiengBip(150, 1000, 1, 0); // Kêu 1 tiếng BÍP thanh thoát thành công
+        phatTiengBip(150, 950, 1, 0); // Kêu 1 tiếng BÍP cao, đanh, báo thành công
         danhSachDaQuet.add(maMaHoa); // Điền ngay vào danh sách chặn trùng tạm thời
         
         // Tìm thông tin Số hợp đồng và họ tên tương ứng từ danh sách gốc
