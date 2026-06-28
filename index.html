@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ Thống Kiểm Đếm QR Code</title>
-    <!-- Tải thư viện quét QR bằng Camera điện thoại ổn định nhất -->
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -22,19 +21,17 @@
         .history-item { padding: 6px 10px; border-bottom: 1px solid #eee; display: block; }
         .history-item:last-child { border-bottom: none; }
         .success-text { color: #137333; font-weight: bold; }
+        .warning-text { color: #b06000; font-weight: bold; }
         .duplicate-text { color: #c5221f; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>MÂY SPA - KIỂM ĐẾM GCN</h2>
+    <h2>MÂY SPA - KIỂM ĐẾM TỰ ĐỘNG</h2>
     
     <div id="status" class="status-box loading">Đang tải dữ liệu từ Google Sheet...</div>
-    
-    <!-- Khung hiển thị Camera quét mã -->
     <div id="reader"></div>
-    
     <button class="btn-action" onclick="chayBaoCaoKetQua()">BẤM XUẤT BÁO CÁO KẾT QUẢ</button>
     
     <div class="history-title">3 lượt quét gần nhất:</div>
@@ -46,7 +43,7 @@
 <script>
     // =========================================================================
     // ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT CỦA BẠN:
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzRM0_K7bGYMPfBAEPz1lgJrkSLPrbUliVbAx_WmQwlA1f39hcFZgzoN57AuLHO5DcSmQ/exec";
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLMpuuxHyedKXJTnzXMi9dlZBEaPL4NYdFjENScFY7X63gENPjAwSHrENs-H4jr3u7ug/exec";
     // =========================================================================
 
     let danhSachGoc = [];
@@ -55,23 +52,15 @@
     let html5QrcodeScanner = null;
     let dangXuLyQuet = false;
 
-    // Bộ phát âm thanh bíp ĐÃ ĐƯỢC TỐI ƯU TO VÀ ĐANH HƠN
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     function phatTiengBip(duration, frequency, times, delay) {
         let callback = function() {
             let osc = audioCtx.createOscillator();
             let gain = audioCtx.createGain();
-            
-            // Thay đổi kiểu sóng sang "square" (sóng vuông) giúp tiếng kêu đanh, sắc và vang to hơn
             osc.type = "square"; 
             osc.frequency.value = frequency;
-            
-            // Đẩy âm lượng lên mức 1.0 (mức tối đa của trình duyệt web)
             gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
-            
-            // Hạ âm lượng nhỏ dần cực nhanh ở mili-giây cuối để tiếng bíp ngắt dứt khoát, không bị rè
             gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration/1000);
-            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
@@ -82,74 +71,74 @@
         }
     }
 
-    // Tự động tải dữ liệu khi mở App để kiểm tra trùng trực tiếp trên điện thoại
     async function loadDuLieuBanDau() {
         try {
             let response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`);
             let resData = await response.json();
-            
             danhSachGoc = resData.listDS;
             resData.listQR.forEach(item => danhSachDaQuet.add(item));
             
             document.getElementById("status").className = "status-box ready";
             document.getElementById("status").innerText = "Hệ thống sẵn sàng! Hãy đưa mã QR vào camera.";
-            
             khoiDongCamera();
         } catch (error) {
             document.getElementById("status").className = "status-box";
             document.getElementById("status").style.backgroundColor = "#fce8e6";
-            document.getElementById("status").style.color = "#c5221f";
             document.getElementById("status").innerText = "Lỗi kết nối mạng! Vui lòng tải lại trang.";
         }
     }
 
-    // Khởi động Camera quét liên tục, tự động tối ưu độ phân giải cho điện thoại
     function khoiDongCamera() {
         html5QrcodeScanner = new Html5Qrcode("reader");
-        const config = { fps: 15, qrbox: { width: 230, height: 230 } };
-        
-        html5QrcodeScanner.start(
-            { facingMode: "environment" }, 
-            config,
-            onScanSuccess
-        ).catch(err => {
-            alert("Không thể mở được camera. Hãy cấp quyền truy cập camera cho ứng dụng!");
-        });
+        html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 230, height: 230 } }, onScanSuccess);
     }
 
-    // Hàm xử lý ngay lập tức khi camera bắt được mã QR
     async function onScanSuccess(decodedText) {
-        if (dangXuLyQuet) return; // Nếu đang xử lý mã trước thì bỏ qua mã sau để tránh bị dồn ứ
+        if (dangXuLyQuet) return;
         dangXuLyQuet = true;
         
         let maMaHoa = decodedText.trim();
         
-        // KIỂM TRA TRÙNG (Nếu đã quét rồi trong phiên làm việc hoặc trên Sheet)
         if (danhSachDaQuet.has(maMaHoa)) {
-            phatTiengBip(100, 650, 2, 150); // Phát 2 tiếng BÍP liên tiếp to rõ cảnh báo trùng
-            capNhatGiaoDienLichSu(maMaHoa, "TRÙNG LẶP", "duplicate-text");
-            setTimeout(() => { dangXuLyQuet = false; }, 2000); // Tạm dừng 2 giây rồi cho quét tiếp mã khác
+            phatTiengBip(100, 650, 2, 150);
+            capNhatGiaoDienLichSu(maMaHoa, "TRÙNG LẶP BAO BÌ", "duplicate-text");
+            setTimeout(() => { dangXuLyQuet = false; }, 2000);
             return;
         }
         
-        // NẾU MÃ HỢP LỆ VÀ CHƯA QUÉT
-        phatTiengBip(150, 950, 1, 0); // Kêu 1 tiếng BÍP cao, đanh, báo thành công
-        danhSachDaQuet.add(maMaHoa); // Điền ngay vào danh sách chặn trùng tạm thời
+        // LOGIC TÁCH CHUỖI CỦA BẠN: tách SoHD và Sluong bằng dấu gạch ngang "-"
+        let phanTu = maMaHoa.split("-");
+        let soHD = phanTu[0] ? phanTu[0].trim() : maMaHoa;
+        let sLuongQuet = phanTu[1] ? Number(phanTu[1].trim()) : 1; // Nếu không có dấu - mặc định là 1
         
-        // Tìm thông tin Số hợp đồng và họ tên tương ứng từ danh sách gốc
-        let thongTinGoc = danhSachGoc.find(item => item.qr.toString().trim() === maMaHoa);
-        let soHD = thongTinGoc ? thongTinGoc.soHD : maMaHoa; 
-        let hoTen = thongTinGoc ? thongTinGoc.hoten : "Không có trong DS gốc";
+        // Tìm thông tin đối chiếu với danh sách gốc
+        let thongTinGoc = danhSachGoc.find(item => item.soHD === soHD);
         
-        capNhatGiaoDienLichSu(maMaHoa, `Thành công (${hoTen})`, "success-text");
+        let msg = "";
+        let classMau = "success-text";
         
-        // Tự động chạy ngầm gửi lên Google Sheet mà không cần bấm nút lưu
-        let thoiGianQuet = new Date().toLocaleString("vi-VN");
+        if (!thongTinGoc) {
+            phatTiengBip(150, 400, 1, 0); // Tiếng bíp trầm báo lạ
+            msg = `Mã lạ không có trong DS gốc (${sLuongQuet} quyển)`;
+            classMau = "duplicate-text";
+        } else if (sLuongQuet !== thongTinGoc.sluong) {
+            phatTiengBip(300, 500, 1, 0); // Kêu bíp dài cảnh báo lệch số lượng
+            msg = `Sai Sluong! QR có ${sLuongQuet} - Gốc có ${thongTinGoc.sluong} (${thongTinGoc.hoten})`;
+            classMau = "warning-text";
+        } else {
+            phatTiengBip(150, 950, 1, 0); // Bíp cao thành công chuẩn xác
+            msg = `Khớp 100%: ${thongTinGoc.hoten} (${sLuongQuet} quyển)`;
+        }
+        
+        danhSachDaQuet.add(maMaHoa);
+        capNhatGiaoDienLichSu(soHD, msg, classMau);
+        
         let dataGuiDi = {
             maQuet: maMaHoa,
-            thoiGian: thoiGianQuet,
+            thoiGian: new Date().toLocaleString("vi-VN"),
             email: "MaySpa_Scanner",
-            soHD: soHD
+            soHD: soHD,
+            sluong: sLuongQuet
         };
         
         fetch(GOOGLE_SCRIPT_URL, {
@@ -159,45 +148,39 @@
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(dataGuiDi)
         }).then(() => {
-            dangXuLyQuet = false; // Gửi xong chạy tiếp luôn không trễ hình
+            dangXuLyQuet = false;
         }).catch(() => {
             dangXuLyQuet = false;
         });
     }
 
-    // Hiển thị 3 dòng lịch sử quét gần nhất lên màn hình
     function capNhatGiaoDienLichSu(ma, trangThai, classMau) {
         lichSuQuetGanNhat.unshift({ ma: ma, trangThai: trangThai, classMau: classMau });
         if (lichSuQuetGanNhat.length > 3) lichSuQuetGanNhat.pop();
         
         let htmlContent = "";
         lichSuQuetGanNhat.forEach(item => {
-            htmlContent += `<div class="history-item">Mã: <b>${item.ma}</b> -> <span class="${item.classMau}">${item.trangThai}</span></div>`;
+            htmlContent += `<div class="history-item">HD: <b>${item.ma}</b> -> <span class="${item.classMau}">${item.trangThai}</span></div>`;
         });
         document.getElementById("history").innerHTML = htmlContent;
     }
 
-    // Hàm gọi xử lý đối chiếu dữ liệu khi bấm nút kết quả
     async function chayBaoCaoKetQua() {
-        if (!confirm("Bạn có chắc chắn muốn xuất báo cáo đối chiếu thừa/thiếu tại Sheet KetQua không?")) return;
-        
+        if (!confirm("Bạn có chắc chắn muốn xuất báo cáo đối chiếu thừa/thiếu số lượng không?")) return;
         document.getElementById("status").className = "status-box loading";
         document.getElementById("status").innerText = "Đang chạy đối chiếu dữ liệu...";
-        
         try {
             let response = await fetch(`${GOOGLE_SCRIPT_URL}?action=tinhKetQua`);
-            let resData = await response.json();
-            
+            await response.json();
             document.getElementById("status").className = "status-box ready";
-            document.getElementById("status").innerText = `Đã xuất xong báo cáo! Tìm thấy ${resData.count} sự khác biệt.`;
-            alert(`Đã hoàn tất đối chiếu dữ liệu! Xin mời kiểm tra Sheet 'KetQua'.`);
+            document.getElementById("status").innerText = `Đã xuất xong báo cáo kiểm đếm!`;
+            alert(`Đã hoàn tất đối chiếu! Mời kiểm tra Sheet 'KetQua'.`);
         } catch (e) {
             document.getElementById("status").className = "status-box ready";
             document.getElementById("status").innerText = "Lỗi khi xuất báo cáo!";
         }
     }
 
-    // Chạy lệnh tải dữ liệu ngay khi mở ứng dụng web
     window.onload = loadDuLieuBanDau;
 </script>
 </body>
