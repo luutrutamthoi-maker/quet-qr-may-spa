@@ -36,7 +36,7 @@
 <body>
 
 <div class="container">
-    <!-- ĐÃ ĐỔI TIÊU ĐỀ THEO YÊU CẦU CỦA BẠN -->
+    <!-- TIÊU ĐỀ ĐÃ ĐƯỢC CHUYỂN THÀNH QUẢN LÝ TSTC THEO ĐÚNG YÊU CẦU -->
     <h2>QUẢN LÝ TSTC</h2>
     
     <div class="device-info">
@@ -63,8 +63,8 @@
 
 <script>
     // =========================================================================
-    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT MỚI CỦA BẠN VÀO GIỮA HAI DẤU NHÁY DƯỚI ĐÂY:
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYYacGP1jlbvsKoBQ7Le66mQGYQUNcApU0KXGBkvTl1VvLfUm9StGC7JDMXORjEk3nwA/exec";
+    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT MỚI BẠN VỪA DEPLOY VÀO ĐÂY:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8SYLjBO-uKsUNNzAGJvzEQoV1klZK4j3PcfJcRuUhuNrsSeZDapCTc5utx9cfo9R99A/exec";
     // =========================================================================
 
     let currentMode = "NHẬP KHO";
@@ -203,22 +203,20 @@
 
         capNhatGiaoDienLichSu(soHD, `${currentMode} thành công (${sLuong} quyển)`, "success-text");
 
-        // Gói dữ liệu chuẩn hóa gửi lên Server
-        let dataGuiDi = {
-            maQuet: maMaHoa,
-            thoiGian: new Date().toLocaleString("vi-VN"),
-            email: nameThietBi, 
-            soHD: soHD,
-            sluong: sLuong,
-            hoten: hoTen,
-            tstc: tenTS,
-            loaiThaoTac: currentMode
-        };
+        // CHUYỂN ĐỔI PHƯƠNG THỨC ĐÓNG GÓI SANG URLSEARCHPARAMS ĐỂ VƯỢT LỖI MẤT CHỮ TRÊN SERVER GOOGLE
+        let urlParams = new URLSearchParams();
+        urlParams.append("maQuet", maMaHoa);
+        urlParams.append("thoiGian", new Date().toLocaleString("vi-VN"));
+        urlParams.append("email", nameThietBi);
+        urlParams.append("soHD", soHD);
+        urlParams.append("sluong", sLuong);
+        urlParams.append("hoten", hoTen);
+        urlParams.append("tstc", tenTS);
+        urlParams.append("loaiThaoTac", currentMode);
 
         fetch(GOOGLE_SCRIPT_URL, {
             method: "POST",
-            headers: { "Content-Type": "text/plain" }, // Dùng text/plain để vượt qua bộ chặn CORS bảo mật của Google Apps Script
-            body: JSON.stringify(dataGuiDi)
+            body: urlParams
         }).then(() => {
             dangXuLyQuet = false;
         }).catch(() => {
