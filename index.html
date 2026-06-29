@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Quản Lý Kho QR Code</title>
+    <title>Hệ Thống Quản Lý TSTC</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -36,15 +36,14 @@
 <body>
 
 <div class="container">
-    <h2>MÂY SPA - QUẢN LÝ KHO TỰ ĐỘNG</h2>
+    <!-- ĐÃ ĐỔI TIÊU ĐỀ THEO YÊU CẦU CỦA BẠN -->
+    <h2>QUẢN LÝ TSTC</h2>
     
-    <!-- Hiển thị tên thiết bị quét -->
     <div class="device-info">
         <span>Thiết bị: <b id="lblDeviceName">Đang nhận diện...</b></span>
         <button class="btn-rename" onclick="doiTenThietBi()">(Đổi tên)</button>
     </div>
     
-    <!-- Thanh chọn 3 chế độ Nhập / Xuất / Kiểm kho -->
     <div class="mode-container">
         <button id="btnNhap" class="mode-btn mode-nhap active" onclick="doiCheDo('NHẬP KHO')">NHẬP KHO</button>
         <button id="btnXuat" class="mode-btn mode-xuat" onclick="doiCheDo('XUẤT KHO')">XUẤT KHO</button>
@@ -64,7 +63,7 @@
 
 <script>
     // =========================================================================
-    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT CỦA BẠN VÀO GIỮA HAI DẤU NHÁY DƯỚI ĐÂY:
+    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT MỚI CỦA BẠN VÀO GIỮA HAI DẤU NHÁY DƯỚI ĐÂY:
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLMpuuxHyedKXJTnzXMi9dlZBEaPL4NYdFjENScFY7X63gENPjAwSHrENs-H4jr3u7ug/exec";
     // =========================================================================
 
@@ -95,7 +94,6 @@
         }
     }
 
-    // Tự động nhận diện thiết bị lần đầu, các lần sau tự lấy từ bộ nhớ không cần hỏi lại
     function cauHinhTenThietBi() {
         let savedName = localStorage.getItem("kho_device_name");
         if (savedName) {
@@ -115,7 +113,7 @@
     }
 
     function doiTenThietBi() {
-        let n = prompt("Nhập tên gợi nhớ cho điện thoại này (VD: SAMSUNG_KHO_1, IPHONE_ANH_KEO...):", nameThietBi);
+        let n = prompt("Nhập tên gợi nhớ cho điện thoại này:", nameThietBi);
         if (n && n.trim() !== "") {
             nameThietBi = n.trim().replace(/\s+/g, '_');
             localStorage.setItem("kho_device_name", nameThietBi);
@@ -137,7 +135,6 @@
             document.getElementById("btnKiem").classList.add("active");
             document.getElementById("btnBaoCao").style.display = "block";
         }
-        
         phatTiengBip(80, 800, 1, 0);
     }
 
@@ -206,6 +203,7 @@
 
         capNhatGiaoDienLichSu(soHD, `${currentMode} thành công (${sLuong} quyển)`, "success-text");
 
+        // Gói dữ liệu chuẩn hóa gửi lên Server
         let dataGuiDi = {
             maQuet: maMaHoa,
             thoiGian: new Date().toLocaleString("vi-VN"),
@@ -219,9 +217,7 @@
 
         fetch(GOOGLE_SCRIPT_URL, {
             method: "POST",
-            mode: "no-cors",
-            cache: "no-cache",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "text/plain" }, // Dùng text/plain để vượt qua bộ chặn CORS bảo mật của Google Apps Script
             body: JSON.stringify(dataGuiDi)
         }).then(() => {
             dangXuLyQuet = false;
