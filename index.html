@@ -36,7 +36,6 @@
 <body>
 
 <div class="container">
-    <!-- TIÊU ĐỀ ĐÃ ĐƯỢC CHUYỂN THÀNH QUẢN LÝ TSTC THEO ĐÚNG YÊU CẦU -->
     <h2>QUẢN LÝ TSTC</h2>
     
     <div class="device-info">
@@ -63,8 +62,8 @@
 
 <script>
     // =========================================================================
-    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT MỚI BẠN VỪA DEPLOY VÀO ĐÂY:
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz8SYLjBO-uKsUNNzAGJvzEQoV1klZK4j3PcfJcRuUhuNrsSeZDapCTc5utx9cfo9R99A/exec";
+    // ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT MỚI CỦA BẠN:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxe1Z9PoHsYKKwh4RXSzX_KfUojjWw16Vz2UFbsA9FAO7-_dIBVEYmD1gPlre1v031e7g/exec";
     // =========================================================================
 
     let currentMode = "NHẬP KHO";
@@ -203,20 +202,19 @@
 
         capNhatGiaoDienLichSu(soHD, `${currentMode} thành công (${sLuong} quyển)`, "success-text");
 
-        // CHUYỂN ĐỔI PHƯƠNG THỨC ĐÓNG GÓI SANG URLSEARCHPARAMS ĐỂ VƯỢT LỖI MẤT CHỮ TRÊN SERVER GOOGLE
-        let urlParams = new URLSearchParams();
-        urlParams.append("maQuet", maMaHoa);
-        urlParams.append("thoiGian", new Date().toLocaleString("vi-VN"));
-        urlParams.append("email", nameThietBi);
-        urlParams.append("soHD", soHD);
-        urlParams.append("sluong", sLuong);
-        urlParams.append("hoten", hoTen);
-        urlParams.append("tstc", tenTS);
-        urlParams.append("loaiThaoTac", currentMode);
+        // CHUYỂN PHƯƠNG THỨC GỬI SANG URL ĐỂ ĐẢM BẢO GOOGLE APPS SCRIPT KHÔNG BỊ CHẶN LOGIC SANG SHEET DANH SACH
+        let PostURL = GOOGLE_SCRIPT_URL + 
+                      "?maQuet=" + encodeURIComponent(maMaHoa) +
+                      "&thoiGian=" + encodeURIComponent(new Date().toLocaleString("vi-VN")) +
+                      "&email=" + encodeURIComponent(nameThietBi) +
+                      "&soHD=" + encodeURIComponent(soHD) +
+                      "&sluong=" + sLuong +
+                      "&hoten=" + encodeURIComponent(hoTen) +
+                      "&tstc=" + encodeURIComponent(tenTS) +
+                      "&loaiThaoTac=" + encodeURIComponent(currentMode);
 
-        fetch(GOOGLE_SCRIPT_URL, {
-            method: "POST",
-            body: urlParams
+        fetch(PostURL, {
+            method: "POST"
         }).then(() => {
             dangXuLyQuet = false;
         }).catch(() => {
