@@ -3,36 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ Thống Kiểm Đếm QR Code</title>
+    <title>Hệ Thống Quản Lý Kho QR Code</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { margin: 0; padding: 10px; background-color: #f0f2f5; text-align: center; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { color: #1a73e8; margin-top: 0; font-size: 20px; }
+        h2 { color: #1a73e8; margin-top: 0; font-size: 20px; margin-bottom: 5px; }
+        
+        .device-info { font-size: 12px; color: #5f6368; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 5px; }
+        .btn-rename { background: none; border: none; color: #1a73e8; cursor: pointer; text-decoration: underline; font-size: 12px; padding: 0; }
+        
+        .mode-container { display: flex; justify-content: space-between; margin-bottom: 15px; background: #eee; padding: 5px; border-radius: 8px; }
+        .mode-btn { flex: 1; padding: 10px 5px; border: none; background: transparent; font-weight: bold; font-size: 13px; cursor: pointer; border-radius: 6px; transition: all 0.3s; }
+        .mode-nhap.active { background: #2e7d32; color: white; }
+        .mode-xuat.active { background: #c62828; color: white; }
+        .mode-kiem.active { background: #1565c0; color: white; }
+        
         #reader { width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
         .status-box { margin: 12px 0; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 14px; }
         .loading { background: #e8f0fe; color: #1a73e8; }
         .ready { background: #e6f4ea; color: #137333; }
-        .btn-action { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        .btn-action:active { background: #1557b0; }
+        .btn-action { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; display: none; }
+        
         .history-title { text-align: left; margin: 15px 0 5px 0; font-weight: bold; font-size: 14px; color: #5f6368; }
         .history-list { text-align: left; background: #f8f9fa; border-radius: 6px; padding: 5px; min-height: 80px; font-size: 13px; }
         .history-item { padding: 6px 10px; border-bottom: 1px solid #eee; display: block; }
-        .history-item:last-child { border-bottom: none; }
         .success-text { color: #137333; font-weight: bold; }
-        .warning-text { color: #b06000; font-weight: bold; }
         .duplicate-text { color: #c5221f; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>MÂY SPA - KIỂM ĐẾM TỰ ĐỘNG</h2>
+    <h2>MÂY SPA - QUẢN LÝ KHO TỰ ĐỘNG</h2>
     
-    <div id="status" class="status-box loading">Đang tải dữ liệu từ Google Sheet...</div>
+    <!-- Hiển thị tên thiết bị quét -->
+    <div class="device-info">
+        <span>Thiết bị: <b id="lblDeviceName">Đang nhận diện...</b></span>
+        <button class="btn-rename" onclick="doiTenThietBi()">(Đổi tên)</button>
+    </div>
+    
+    <!-- Thanh chọn 3 chế độ Nhập / Xuất / Kiểm kho -->
+    <div class="mode-container">
+        <button id="btnNhap" class="mode-btn mode-nhap active" onclick="doiCheDo('NHẬP KHO')">NHẬP KHO</button>
+        <button id="btnXuat" class="mode-btn mode-xuat" onclick="doiCheDo('XUẤT KHO')">XUẤT KHO</button>
+        <button id="btnKiem" class="mode-btn mode-kiem" onclick="doiCheDo('KIỂM KHO')">KIỂM KHO</button>
+    </div>
+    
+    <div id="status" class="status-box loading">Đang tải dữ liệu bộ nhớ...</div>
     <div id="reader"></div>
-    <button class="btn-action" onclick="chayBaoCaoKetQua()">BẤM XUẤT BÁO CÁO KẾT QUẢ</button>
+    
+    <button id="btnBaoCao" class="btn-action" onclick="chayBaoCaoKetQua()">BẤM XUẤT BÁO CÁO KIỂM KHO</button>
     
     <div class="history-title">3 lượt quét gần nhất:</div>
     <div id="history" class="history-list">
@@ -42,12 +64,14 @@
 
 <script>
     // =========================================================================
-    // ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT CỦA BẠN:
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzLMpuuxHyedKXJTnzXMi9dlZBEaPL4NYdFjENScFY7X63gENPjAwSHrENs-H4jr3u7ug/exec";
+    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT CỦA BẠN VÀO GIỮA HAI DẤU NHÁY DƯỚI ĐÂY:
+    const GOOGLE_SCRIPT_URL = "DÁN_LINK_WEB_APP_CỦA_BẠN_VÀO_ĐÂY";
     // =========================================================================
 
+    let currentMode = "NHẬP KHO";
+    let nameThietBi = "";
     let danhSachGoc = [];
-    let danhSachDaQuet = new Set();
+    let danhSachDaQuetTrongPhien = new Set();
     let lichSuQuetGanNhat = [];
     let html5QrcodeScanner = null;
     let dangXuLyQuet = false;
@@ -71,20 +95,66 @@
         }
     }
 
+    // Tự động nhận diện thiết bị lần đầu, các lần sau tự lấy từ bộ nhớ không cần hỏi lại
+    function cauHinhTenThietBi() {
+        let savedName = localStorage.getItem("kho_device_name");
+        if (savedName) {
+            nameThietBi = savedName;
+        } else {
+            let userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/android/i.test(userAgent)) {
+                nameThietBi = "Máy_Android";
+            } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                nameThietBi = "Máy_iPhone";
+            } else {
+                nameThietBi = "Máy_Tính_Web";
+            }
+            localStorage.setItem("kho_device_name", nameThietBi);
+        }
+        document.getElementById("lblDeviceName").innerText = nameThietBi;
+    }
+
+    function doiTenThietBi() {
+        let n = prompt("Nhập tên gợi nhớ cho điện thoại này (VD: SAMSUNG_KHO_1, IPHONE_ANH_KEO...):", nameThietBi);
+        if (n && n.trim() !== "") {
+            nameThietBi = n.trim().replace(/\s+/g, '_');
+            localStorage.setItem("kho_device_name", nameThietBi);
+            document.getElementById("lblDeviceName").innerText = nameThietBi;
+        }
+    }
+
+    function doiCheDo(cheDo) {
+        currentMode = cheDo;
+        document.getElementById("btnNhap").classList.remove("active");
+        document.getElementById("btnXuat").classList.remove("active");
+        document.getElementById("btnKiem").classList.remove("active");
+        document.getElementById("btnBaoCao").style.display = "none";
+        danhSachDaQuetTrongPhien.clear();
+        
+        if(cheDo === "NHẬP KHO") document.getElementById("btnNhap").classList.add("active");
+        if(cheDo === "XUẤT KHO") document.getElementById("btnXuat").classList.add("active");
+        if(cheDo === "KIỂM KHO") {
+            document.getElementById("btnKiem").classList.add("active");
+            document.getElementById("btnBaoCao").style.display = "block";
+        }
+        
+        phatTiengBip(80, 800, 1, 0);
+    }
+
     async function loadDuLieuBanDau() {
+        cauHinhTenThietBi();
         try {
             let response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`);
             let resData = await response.json();
             danhSachGoc = resData.listDS;
-            resData.listQR.forEach(item => danhSachDaQuet.add(item));
             
             document.getElementById("status").className = "status-box ready";
-            document.getElementById("status").innerText = "Hệ thống sẵn sàng! Hãy đưa mã QR vào camera.";
+            document.getElementById("status").innerText = "Hệ thống sẵn sàng!";
             khoiDongCamera();
         } catch (error) {
             document.getElementById("status").className = "status-box";
             document.getElementById("status").style.backgroundColor = "#fce8e6";
-            document.getElementById("status").innerText = "Lỗi kết nối mạng! Vui lòng tải lại trang.";
+            document.getElementById("status").innerText = "Lỗi mạng! Vui lòng tải lại trang.";
         }
     }
 
@@ -99,48 +169,54 @@
         
         let maMaHoa = decodedText.trim();
         
-        if (danhSachDaQuet.has(maMaHoa)) {
+        if (danhSachDaQuetTrongPhien.has(maMaHoa)) {
             phatTiengBip(100, 650, 2, 150);
-            capNhatGiaoDienLichSu(maMaHoa, "TRÙNG LẶP BAO BÌ", "duplicate-text");
+            capNhatGiaoDienLichSu("TRÙNG LẶP", "Mã này vừa quét xong", "duplicate-text");
             setTimeout(() => { dangXuLyQuet = false; }, 2000);
             return;
         }
-        
-        // LOGIC TÁCH CHUỖI CỦA BẠN: tách SoHD và Sluong bằng dấu gạch ngang "-"
+
+        // Tách chuỗi dữ liệu mã QR theo cấu trúc: SoHD-Sluong-Hoten-TSTC
         let phanTu = maMaHoa.split("-");
         let soHD = phanTu[0] ? phanTu[0].trim() : maMaHoa;
-        let sLuongQuet = phanTu[1] ? Number(phanTu[1].trim()) : 1; // Nếu không có dấu - mặc định là 1
+        let sLuong = phanTu[1] ? Number(phanTu[1].trim()) : 1;
+        let hoTen = phanTu[2] ? phanTu[2].trim() : "Không rõ";
+        let tenTS = phanTu[3] ? phanTu[3].trim() : "Chưa phân loại";
+
+        let trangThaiKhoGoc = danhSachGoc.find(item => item.soHD === soHD);
         
-        // Tìm thông tin đối chiếu với danh sách gốc
-        let thongTinGoc = danhSachGoc.find(item => item.soHD === soHD);
-        
-        let msg = "";
-        let classMau = "success-text";
-        
-        if (!thongTinGoc) {
-            phatTiengBip(150, 400, 1, 0); // Tiếng bíp trầm báo lạ
-            msg = `Mã lạ không có trong DS gốc (${sLuongQuet} quyển)`;
-            classMau = "duplicate-text";
-        } else if (sLuongQuet !== thongTinGoc.sluong) {
-            phatTiengBip(300, 500, 1, 0); // Kêu bíp dài cảnh báo lệch số lượng
-            msg = `Sai Sluong! QR có ${sLuongQuet} - Gốc có ${thongTinGoc.sluong} (${thongTinGoc.hoten})`;
-            classMau = "warning-text";
-        } else {
-            phatTiengBip(150, 950, 1, 0); // Bíp cao thành công chuẩn xác
-            msg = `Khớp 100%: ${thongTinGoc.hoten} (${sLuongQuet} quyển)`;
+        if (currentMode === "NHẬP KHO" && trangThaiKhoGoc && trangThaiKhoGoc.trangThai === "Trong kho") {
+            phatTiengBip(100, 650, 2, 150);
+            capNhatGiaoDienLichSu(soHD, "LỖI: Tài sản đã có trong kho!", "duplicate-text");
+            setTimeout(() => { dangXuLyQuet = false; }, 2000);
+            return;
         }
+        if (currentMode === "XUẤT KHO" && (!trangThaiKhoGoc || trangThaiKhoGoc.trangThai === "Đã xuất")) {
+            phatTiengBip(100, 650, 2, 150);
+            capNhatGiaoDienLichSu(soHD, "LỖI: Không tìm thấy tồn kho để xuất!", "duplicate-text");
+            setTimeout(() => { dangXuLyQuet = false; }, 2000);
+            return;
+        }
+
+        phatTiengBip(150, 950, 1, 0);
+        danhSachDaQuetTrongPhien.add(maMaHoa);
         
-        danhSachDaQuet.add(maMaHoa);
-        capNhatGiaoDienLichSu(soHD, msg, classMau);
-        
+        if (currentMode === "NHẬP KHO") danhSachGoc.push({ soHD: soHD, hoten: hoTen, sluong: sLuong, trangThai: "Trong kho" });
+        if (currentMode === "XUẤT KHO" && trangThaiKhoGoc) trangThaiKhoGoc.trangThai = "Đã xuất";
+
+        capNhatGiaoDienLichSu(soHD, `${currentMode} thành công (${sLuong} quyển)`, "success-text");
+
         let dataGuiDi = {
             maQuet: maMaHoa,
             thoiGian: new Date().toLocaleString("vi-VN"),
-            email: "MaySpa_Scanner",
+            email: nameThietBi, 
             soHD: soHD,
-            sluong: sLuongQuet
+            sluong: sLuong,
+            hoten: hoTen,
+            tstc: tenTS,
+            loaiThaoTac: currentMode
         };
-        
+
         fetch(GOOGLE_SCRIPT_URL, {
             method: "POST",
             mode: "no-cors",
@@ -157,27 +233,26 @@
     function capNhatGiaoDienLichSu(ma, trangThai, classMau) {
         lichSuQuetGanNhat.unshift({ ma: ma, trangThai: trangThai, classMau: classMau });
         if (lichSuQuetGanNhat.length > 3) lichSuQuetGanNhat.pop();
-        
         let htmlContent = "";
         lichSuQuetGanNhat.forEach(item => {
-            htmlContent += `<div class="history-item">HD: <b>${item.ma}</b> -> <span class="${item.classMau}">${item.trangThai}</span></div>`;
+            htmlContent += `<div class="history-item">Mã: <b>${item.ma}</b> -> <span class="${item.classMau}">${item.trangThai}</span></div>`;
         });
         document.getElementById("history").innerHTML = htmlContent;
     }
 
     async function chayBaoCaoKetQua() {
-        if (!confirm("Bạn có chắc chắn muốn xuất báo cáo đối chiếu thừa/thiếu số lượng không?")) return;
+        if (!confirm("Xác nhận đối chiếu dữ liệu đợt KIỂM KHO này?")) return;
         document.getElementById("status").className = "status-box loading";
-        document.getElementById("status").innerText = "Đang chạy đối chiếu dữ liệu...";
+        document.getElementById("status").innerText = "Đang đối chiếu...";
         try {
             let response = await fetch(`${GOOGLE_SCRIPT_URL}?action=tinhKetQua`);
             await response.json();
             document.getElementById("status").className = "status-box ready";
-            document.getElementById("status").innerText = `Đã xuất xong báo cáo kiểm đếm!`;
-            alert(`Đã hoàn tất đối chiếu! Mời kiểm tra Sheet 'KetQua'.`);
+            document.getElementById("status").innerText = `Đã xuất báo cáo!`;
+            alert(`Đã xuất kết quả kiểm kho sang Sheet 'KetQua'.`);
         } catch (e) {
             document.getElementById("status").className = "status-box ready";
-            document.getElementById("status").innerText = "Lỗi khi xuất báo cáo!";
+            document.getElementById("status").innerText = "Lỗi hệ thống!";
         }
     }
 
