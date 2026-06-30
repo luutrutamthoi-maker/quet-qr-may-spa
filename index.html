@@ -24,7 +24,8 @@
         .status-box { margin: 12px 0; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 14px; }
         .loading { background: #e8f0fe; color: #1a73e8; }
         .ready { background: #e6f4ea; color: #137333; }
-        .btn-action { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 10px; display: none; }
+        .btn-action { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; display: none; }
+        .btn-report { width: 100%; padding: 12px; background: #37474f; color: white; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; display: none; }
         
         .history-title { text-align: left; margin: 15px 0 5px 0; font-weight: bold; font-size: 14px; color: #5f6368; }
         .history-list { text-align: left; background: #f8f9fa; border-radius: 6px; padding: 5px; min-height: 80px; font-size: 13px; }
@@ -52,7 +53,9 @@
     <div id="status" class="status-box loading">Đang tải dữ liệu bộ nhớ...</div>
     <div id="reader"></div>
     
+    <!-- Các nút chức năng xuất dữ liệu -->
     <button id="btnBaoCao" class="btn-action" onclick="chayBaoCaoKetQua()">BẤM XUẤT BÁO CÁO KIỂM KHO</button>
+    <button id="btnDinhKy" class="btn-report" onclick="chayBaoCaoTongHop()">XUẤT BÁO CÁO NHẬP - XUẤT - TỒN</button>
     
     <div class="history-title">3 lượt quét gần nhất:</div>
     <div id="history" class="history-list">
@@ -62,8 +65,8 @@
 
 <script>
     // =========================================================================
-    // ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT MỚI CỦA BẠN:
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxWRPkPYtTnULoqLz512u1lfYOVD_Y5T34fzw7UkxSko5MEL-5tmlOMOZyOOi90H7Z6/exec";
+    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT MỚI CỦA BẠN VÀO GIỮA HAI DẤU NHÁY DƯỚI ĐÂY:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxTaEOB8ZVsK1kefMX5GDEWGxY3yi6RCsjzYUlEp-7fRzuuCzZkwJpt7mF35nlaES0bg/exec";
     // =========================================================================
 
     let currentMode = "NHẬP KHO";
@@ -126,6 +129,7 @@
         document.getElementById("btnXuat").classList.remove("active");
         document.getElementById("btnKiem").classList.remove("active");
         document.getElementById("btnBaoCao").style.display = "none";
+        document.getElementById("btnDinhKy").style.display = "none";
         danhSachDaQuetTrongPhien.clear();
         
         if(cheDo === "NHẬP KHO") document.getElementById("btnNhap").classList.add("active");
@@ -133,6 +137,7 @@
         if(cheDo === "KIỂM KHO") {
             document.getElementById("btnKiem").classList.add("active");
             document.getElementById("btnBaoCao").style.display = "block";
+            document.getElementById("btnDinhKy").style.display = "block"; // Hiện nút BC định kỳ
         }
         phatTiengBip(80, 800, 1, 0);
     }
@@ -143,7 +148,6 @@
             let response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`);
             let resData = await response.json();
             danhSachGoc = resData.listDS;
-            
             document.getElementById("status").className = "status-box ready";
             document.getElementById("status").innerText = "Hệ thống sẵn sàng!";
             khoiDongCamera();
@@ -164,7 +168,6 @@
         dangXuLyQuet = true;
         
         let maMaHoa = decodedText.trim();
-        
         if (danhSachDaQuetTrongPhien.has(maMaHoa)) {
             phatTiengBip(100, 650, 2, 150);
             capNhatGiaoDienLichSu("TRÙNG LẶP", "Mã này vừa quét xong", "duplicate-text");
@@ -172,7 +175,6 @@
             return;
         }
 
-        // Tách chuỗi dữ liệu mã QR theo cấu trúc: SoHD-Sluong-Hoten-TSTC
         let phanTu = maMaHoa.split("-");
         let soHD = phanTu[0] ? phanTu[0].trim() : maMaHoa;
         let sLuong = phanTu[1] ? Number(phanTu[1].trim()) : 1;
@@ -202,7 +204,6 @@
 
         capNhatGiaoDienLichSu(soHD, `${currentMode} thành công (${sLuong} quyển)`, "success-text");
 
-        // CHUYỂN PHƯƠNG THỨC GỬI SANG URL ĐỂ ĐẢM BẢO GOOGLE APPS SCRIPT KHÔNG BỊ CHẶN LOGIC SANG SHEET DANH SACH
         let PostURL = GOOGLE_SCRIPT_URL + 
                       "?maQuet=" + encodeURIComponent(maMaHoa) +
                       "&thoiGian=" + encodeURIComponent(new Date().toLocaleString("vi-VN")) +
@@ -213,13 +214,7 @@
                       "&tstc=" + encodeURIComponent(tenTS) +
                       "&loaiThaoTac=" + encodeURIComponent(currentMode);
 
-        fetch(PostURL, {
-            method: "POST"
-        }).then(() => {
-            dangXuLyQuet = false;
-        }).catch(() => {
-            dangXuLyQuet = false;
-        });
+        fetch(PostURL, { method: "POST" }).then(() => { dangXuLyQuet = false; }).catch(() => { dangXuLyQuet = false; });
     }
 
     function capNhatGiaoDienLichSu(ma, trangThai, classMau) {
@@ -237,14 +232,37 @@
         document.getElementById("status").className = "status-box loading";
         document.getElementById("status").innerText = "Đang đối chiếu...";
         try {
-            let response = await fetch(`${GOOGLE_SCRIPT_URL}?action=tinhKetQua`);
-            await response.json();
+            await fetch(`${GOOGLE_SCRIPT_URL}?action=tinhKetQua`);
             document.getElementById("status").className = "status-box ready";
             document.getElementById("status").innerText = `Đã xuất báo cáo!`;
             alert(`Đã xuất kết quả kiểm kho sang Sheet 'KetQua'.`);
         } catch (e) {
             document.getElementById("status").className = "status-box ready";
             document.getElementById("status").innerText = "Lỗi hệ thống!";
+        }
+    }
+
+    // Hàm gọi xử lý tính Nhập - Xuất - Tồn định kỳ mới
+    async function chayBaoCaoTongHop() {
+        if (!confirm("Hệ thống sẽ tính toán Nhập-Xuất-Tồn theo mốc thời gian tại H1, H2 của sheet 'BaoCao'. Xác nhận chạy?")) return;
+        document.getElementById("status").className = "status-box loading";
+        document.getElementById("status").innerText = "Đang tổng hợp số liệu kho...";
+        try {
+            let res = await fetch(`${GOOGLE_SCRIPT_URL}?action=chayBaoCaoDinhKy`);
+            let data = await res.json();
+            document.getElementById("status").className = "status-box ready";
+            if(data.status === "success") {
+                document.getElementById("status").innerText = `Đã tổng hợp xong báo cáo định kỳ!`;
+                alert(`Đã xuất báo cáo Nhập-Xuất-Tồn thành công sang Sheet 'BaoCao'!`);
+            } else {
+                document.getElementById("status").className = "status-box";
+                document.getElementById("status").style.backgroundColor = "#fce8e6";
+                document.getElementById("status").innerText = data.msg;
+                alert(data.msg);
+            }
+        } catch (e) {
+            document.getElementById("status").className = "status-box ready";
+            document.getElementById("status").innerText = "Lỗi hệ thống báo cáo!";
         }
     }
 
