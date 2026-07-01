@@ -53,7 +53,6 @@
     <div id="status" class="status-box loading">Đang tải dữ liệu bộ nhớ...</div>
     <div id="reader"></div>
     
-    <!-- Các nút chức năng xuất dữ liệu -->
     <button id="btnBaoCao" class="btn-action" onclick="chayBaoCaoKetQua()">BẤM XUẤT BÁO CÁO KIỂM KHO</button>
     <button id="btnDinhKy" class="btn-report" onclick="chayBaoCaoTongHop()">XUẤT BÁO CÁO NHẬP - XUẤT - TỒN</button>
     
@@ -65,8 +64,8 @@
 
 <script>
     // =========================================================================
-    // DÁN ĐƯỜNG LINK WEB APP GOOGLE APPS SCRIPT MỚI CỦA BẠN VÀO GIỮA HAI DẤU NHÁY DƯỚI ĐÂY:
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwxZWj7WVAqAc-EZpMnDScfSlWf0lnnkQwRpYOY_wRu95tSbotwo0gsQIo2da7B-NkPyQ/exec";
+    // BẮT BUỘC: PHẢI THAY ĐƯỜNG LINK WEB APP MỚI NHẤT SAU KHI DEPLOY VÀO ĐÂY
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFtgE9S8HPbtLqDKIDQLoVHX3sujIceQsOC1ilD7SlPrfQQz64SsUyCCWt9BTQvgoCPA/exec";
     // =========================================================================
 
     let currentMode = "NHẬP KHO";
@@ -137,7 +136,7 @@
         if(cheDo === "KIỂM KHO") {
             document.getElementById("btnKiem").classList.add("active");
             document.getElementById("btnBaoCao").style.display = "block";
-            document.getElementById("btnDinhKy").style.display = "block"; // Hiện nút BC định kỳ
+            document.getElementById("btnDinhKy").style.display = "block";
         }
         phatTiengBip(80, 800, 1, 0);
     }
@@ -242,9 +241,9 @@
         }
     }
 
-    // Hàm gọi xử lý tính Nhập - Xuất - Tồn định kỳ mới
+    // ĐÃ SỬA THÔNG BÁO HIỂN THỊ ĐÚNG THEO Ô I1 VÀ K1
     async function chayBaoCaoTongHop() {
-        if (!confirm("Hệ thống sẽ tính toán Nhập-Xuất-Tồn theo mốc thời gian tại H1, H2 của sheet 'BaoCao'. Xác nhận chạy?")) return;
+        if (!confirm("Hệ thống sẽ tính toán Nhập-Xuất-Tồn theo mốc thời gian tại I1 và K1 của sheet 'BaoCao'. Xác nhận chạy?")) return;
         document.getElementById("status").className = "status-box loading";
         document.getElementById("status").innerText = "Đang tổng hợp số liệu kho...";
         try {
