@@ -64,8 +64,8 @@
 
 <script>
     // =========================================================================
-    // DÁN ĐƯỜNG LINK WEB APP MỚI COPIED ĐƯỢC Ở BƯỚC 1 VÀO ĐÂY:
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx4TYMsnpU6yWjgbqgjW-EsyOD3LoOMM4CZ9Q0LQeHQgQdnXNcv_cAaLmTHPVGOh2xVRA/exec";
+    // DÁN ĐƯỜNG LINK WEB APP MỚI BẠN VỪA LẤY Ở BƯỚC 1 VÀO ĐÂY:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyx64eR5hyDuK_kw5nucm5syvwXlZHO9bxF1zjdWiTqDL7GoUmS649szzbz_kDjz9fHYA/exec";
     // =========================================================================
 
     let currentMode = "NHẬP KHO";
@@ -241,9 +241,9 @@
         }
     }
 
-    // ĐÃ CHỈNH SỬA TOÀN BỘ CHỮ THÔNG BÁO THÀNH I1 VÀ K1 THEO ĐÚNG YÊU CẦU
+    // ĐÃ ĐỒNG BỘ HIỂN THỊ THÀNH H1 VÀ J1 THEO YÊU CẦU CỦA BẠN
     async function chayBaoCaoTongHop() {
-        if (!confirm("Hệ thống sẽ tính toán Nhập-Xuất-Tồn theo mốc thời gian tại I1 và K1 của sheet 'BaoCao'. Xác nhận chạy?")) return;
+        if (!confirm("Hệ thống sẽ tính toán Nhập-Xuất-Tồn theo mốc thời gian tại H1 và J1 của sheet 'BaoCao'. Xác nhận chạy?")) return;
         document.getElementById("status").className = "status-box loading";
         document.getElementById("status").innerText = "Đang tổng hợp số liệu kho...";
         try {
