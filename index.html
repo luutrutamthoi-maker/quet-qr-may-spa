@@ -64,8 +64,8 @@
 
 <script>
     // =========================================================================
-    // BẮT BUỘC: PHẢI THAY ĐƯỜNG LINK WEB APP MỚI NHẤT SAU KHI DEPLOY VÀO ĐÂY
-    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwFtgE9S8HPbtLqDKIDQLoVHX3sujIceQsOC1ilD7SlPrfQQz64SsUyCCWt9BTQvgoCPA/exec";
+    // DÁN ĐƯỜNG LINK WEB APP MỚI COPIED ĐƯỢC Ở BƯỚC 1 VÀO ĐÂY:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx4TYMsnpU6yWjgbqgjW-EsyOD3LoOMM4CZ9Q0LQeHQgQdnXNcv_cAaLmTHPVGOh2xVRA/exec";
     // =========================================================================
 
     let currentMode = "NHẬP KHO";
@@ -241,7 +241,7 @@
         }
     }
 
-    // ĐÃ SỬA THÔNG BÁO HIỂN THỊ ĐÚNG THEO Ô I1 VÀ K1
+    // ĐÃ CHỈNH SỬA TOÀN BỘ CHỮ THÔNG BÁO THÀNH I1 VÀ K1 THEO ĐÚNG YÊU CẦU
     async function chayBaoCaoTongHop() {
         if (!confirm("Hệ thống sẽ tính toán Nhập-Xuất-Tồn theo mốc thời gian tại I1 và K1 của sheet 'BaoCao'. Xác nhận chạy?")) return;
         document.getElementById("status").className = "status-box loading";
