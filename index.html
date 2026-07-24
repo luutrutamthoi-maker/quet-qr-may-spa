@@ -63,15 +63,17 @@
 </div>
 
 <script>
-    // =========================================================================
-    // ĐƯỜNG LINK WEB APP CỦA BẠN ĐÃ ĐƯỢC GIỮ NGUYÊN CHUẨN XÁC:
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwDoSbWlFHxXqzqyEectYLOEhxTMzj3tTwcrA1Hpd_nrTTcNVe4u3ETni9KIgUpDO8LaA/exec";
-    // =========================================================================
 
     let currentMode = "NHẬP KHO";
     let nameThietBi = "";
     let danhSachGoc = [];
-    let danhSachDaQuetTrongPhien = new Set();
+    
+    // TÁCH BIẾN CHỐNG TRÙNG THÀNH 3 BỘ NHỚ ĐỘC LẬP CHO 3 CHẾ ĐỘ
+    let daQuetNhap = new Set();
+    let daQuetXuat = new Set();
+    let daQuetKiem = new Set();
+    
     let lichSuQuetGanNhat = [];
     let html5QrcodeScanner = null;
     let dangXuLyQuet = false;
@@ -130,8 +132,6 @@
         document.getElementById("btnBaoCao").style.display = "none";
         document.getElementById("btnDinhKy").style.display = "none";
         
-        // GIỮ NGUYÊN DANH SÁCH MÃ ĐÃ QUÉT ĐỂ CHỐNG TRÙNG LẶP KHI CHUYỂN CHẾ ĐỘ
-        
         if(cheDo === "NHẬP KHO") document.getElementById("btnNhap").classList.add("active");
         if(cheDo === "XUẤT KHO") document.getElementById("btnXuat").classList.add("active");
         if(cheDo === "KIỂM KHO") {
@@ -149,10 +149,10 @@
             let resData = await response.json();
             danhSachGoc = resData.listDS;
             
-            // TẢI TOÀN BỘ MÃ ĐÃ QUÉT TRÊN KHO VỀ ĐIỆN THOẠI ĐỂ CHỐNG TRÙNG LẶP TUYỆT ĐỐI
-            if (resData.listQR && Array.isArray(resData.listQR)) {
-                resData.listQR.forEach(ma => danhSachDaQuetTrongPhien.add(ma));
-            }
+            // NẠP DỮ LIỆU ĐÃ QUÉT TỪ GOOGLE SHEETS VÀO ĐÚNG BỘ NHỚ TƯƠNG ỨNG
+            if (resData.listKiem && Array.isArray(resData.listKiem)) resData.listKiem.forEach(m => daQuetKiem.add(m));
+            if (resData.listNhap && Array.isArray(resData.listNhap)) resData.listNhap.forEach(m => daQuetNhap.add(m));
+            if (resData.listXuat && Array.isArray(resData.listXuat)) resData.listXuat.forEach(m => daQuetXuat.add(m));
 
             document.getElementById("status").className = "status-box ready";
             document.getElementById("status").innerText = "Hệ thống sẵn sàng!";
@@ -174,7 +174,14 @@
         dangXuLyQuet = true;
         
         let maMaHoa = decodedText.trim();
-        if (danhSachDaQuetTrongPhien.has(maMaHoa)) {
+        
+        // KIỂM TRA TRÙNG LẶP THEO ĐÚNG CHẾ ĐỘ ĐANG CHỌN
+        let isDuplicate = false;
+        if (currentMode === "KIỂM KHO" && daQuetKiem.has(maMaHoa)) isDuplicate = true;
+        if (currentMode === "NHẬP KHO" && daQuetNhap.has(maMaHoa)) isDuplicate = true;
+        if (currentMode === "XUẤT KHO" && daQuetXuat.has(maMaHoa)) isDuplicate = true;
+
+        if (isDuplicate) {
             phatTiengBip(100, 650, 2, 150);
             capNhatGiaoDienLichSu("TRÙNG LẶP", "Mã này vừa quét xong", "duplicate-text");
             setTimeout(() => { dangXuLyQuet = false; }, 2000);
@@ -203,10 +210,17 @@
         }
 
         phatTiengBip(150, 950, 1, 0);
-        danhSachDaQuetTrongPhien.add(maMaHoa);
         
-        if (currentMode === "NHẬP KHO") danhSachGoc.push({ soHD: soHD, hoten: hoTen, sluong: sLuong, trangThai: "Trong kho" });
-        if (currentMode === "XUẤT KHO" && trangThaiKhoGoc) trangThaiKhoGoc.trangThai = "Đã xuất";
+        // GHI MÃ VÀO ĐÚNG BỘ NHỚ TƯƠNG ỨNG KHI QUÉT THÀNH CÔNG
+        if (currentMode === "KIỂM KHO") daQuetKiem.add(maMaHoa);
+        if (currentMode === "NHẬP KHO") {
+            daQuetNhap.add(maMaHoa);
+            danhSachGoc.push({ soHD: soHD, hoten: hoTen, sluong: sLuong, trangThai: "Trong kho" });
+        }
+        if (currentMode === "XUẤT KHO") {
+            daQuetXuat.add(maMaHoa);
+            if (trangThaiKhoGoc) trangThaiKhoGoc.trangThai = "Đã xuất";
+        }
 
         capNhatGiaoDienLichSu(soHD, `${currentMode} thành công (${sLuong} quyển)`, "success-text");
 
