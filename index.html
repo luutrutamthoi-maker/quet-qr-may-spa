@@ -64,7 +64,7 @@
 
 <script>
     // =========================================================================
-    // DÁN ĐƯỜNG LINK WEB APP MỚI BẠN VỪA LẤY Ở BƯỚC 1 VÀO ĐÂY:
+    // ĐƯỜNG LINK WEB APP CỦA BẠN ĐÃ ĐƯỢC GIỮ NGUYÊN CHUẨN XÁC:
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwDoSbWlFHxXqzqyEectYLOEhxTMzj3tTwcrA1Hpd_nrTTcNVe4u3ETni9KIgUpDO8LaA/exec";
     // =========================================================================
 
@@ -129,7 +129,8 @@
         document.getElementById("btnKiem").classList.remove("active");
         document.getElementById("btnBaoCao").style.display = "none";
         document.getElementById("btnDinhKy").style.display = "none";
-        danhSachDaQuetTrongPhien.clear();
+        
+        // GIỮ NGUYÊN DANH SÁCH MÃ ĐÃ QUÉT ĐỂ CHỐNG TRÙNG LẶP KHI CHUYỂN CHẾ ĐỘ
         
         if(cheDo === "NHẬP KHO") document.getElementById("btnNhap").classList.add("active");
         if(cheDo === "XUẤT KHO") document.getElementById("btnXuat").classList.add("active");
@@ -147,6 +148,12 @@
             let response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`);
             let resData = await response.json();
             danhSachGoc = resData.listDS;
+            
+            // TẢI TOÀN BỘ MÃ ĐÃ QUÉT TRÊN KHO VỀ ĐIỆN THOẠI ĐỂ CHỐNG TRÙNG LẶP TUYỆT ĐỐI
+            if (resData.listQR && Array.isArray(resData.listQR)) {
+                resData.listQR.forEach(ma => danhSachDaQuetTrongPhien.add(ma));
+            }
+
             document.getElementById("status").className = "status-box ready";
             document.getElementById("status").innerText = "Hệ thống sẵn sàng!";
             khoiDongCamera();
@@ -241,7 +248,6 @@
         }
     }
 
-    // ĐÃ ĐỒNG BỘ HIỂN THỊ THÀNH H1 VÀ J1 THEO YÊU CẦU CỦA BẠN
     async function chayBaoCaoTongHop() {
         if (!confirm("Hệ thống sẽ tính toán Nhập-Xuất-Tồn theo mốc thời gian tại H1 và J1 của sheet 'BaoCao'. Xác nhận chạy?")) return;
         document.getElementById("status").className = "status-box loading";
