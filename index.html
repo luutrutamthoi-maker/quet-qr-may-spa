@@ -1,260 +1,277 @@
-// =========================================================================
-// HỆ THỐNG QUẢN LÝ TSTC - TOÀN BỘ CODE GOOGLE APPS SCRIPT HOÀN CHỈNH
-// =========================================================================
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Quản Lý TSTC</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { margin: 0; padding: 10px; background-color: #f0f2f5; text-align: center; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        h2 { color: #1a73e8; margin-top: 0; font-size: 20px; margin-bottom: 5px; }
+        
+        .device-info { font-size: 12px; color: #5f6368; margin-bottom: 10px; display: flex; justify-content: center; align-items: center; gap: 5px; }
+        .btn-rename { background: none; border: none; color: #1a73e8; cursor: pointer; text-decoration: underline; font-size: 12px; padding: 0; }
+        
+        .mode-container { display: flex; justify-content: space-between; margin-bottom: 15px; background: #eee; padding: 5px; border-radius: 8px; }
+        .mode-btn { flex: 1; padding: 10px 5px; border: none; background: transparent; font-weight: bold; font-size: 13px; cursor: pointer; border-radius: 6px; transition: all 0.3s; }
+        .mode-nhap.active { background: #2e7d32; color: white; }
+        .mode-xuat.active { background: #c62828; color: white; }
+        .mode-kiem.active { background: #1565c0; color: white; }
+        
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; background: #000; }
+        .status-box { margin: 12px 0; padding: 10px; border-radius: 6px; font-weight: bold; font-size: 14px; }
+        .loading { background: #e8f0fe; color: #1a73e8; }
+        .ready { background: #e6f4ea; color: #137333; }
+        .btn-action { width: 100%; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 10px; display: none; }
+        .btn-report { width: 100%; padding: 12px; background: #37474f; color: white; border: none; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 8px; display: none; }
+        
+        .history-title { text-align: left; margin: 15px 0 5px 0; font-weight: bold; font-size: 14px; color: #5f6368; }
+        .history-list { text-align: left; background: #f8f9fa; border-radius: 6px; padding: 5px; min-height: 80px; font-size: 13px; }
+        .history-item { padding: 6px 10px; border-bottom: 1px solid #eee; display: block; }
+        .success-text { color: #137333; font-weight: bold; }
+        .duplicate-text { color: #c5221f; font-weight: bold; }
+    </style>
+</head>
+<body>
 
-function doGet(e) {
-  var action = e.parameter.action;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // 1. LẤY DỮ LIỆU BAN ĐẦU (CHỈ LẤY CÁC MÃ 'KIỂM KHO' ĐỂ CHỐNG TRÙNG CHUẨN XÁC)
-  if (action == "getData") {
-    var sheetDS = ss.getSheetByName("DanhSach");
-    var sheetQR = ss.getSheetByName("QuetQR");
+<div class="container">
+    <h2>QUẢN LÝ TSTC</h2>
     
-    var dataDS = sheetDS.getDataRange().getValues();
-    var listDS = [];
-    for (var i = 1; i < dataDS.length; i++) {
-      if(dataDS[i][0]) {
-        listDS.push({
-          soHD: dataDS[i][0].toString().trim(), 
-          hoten: dataDS[i][1] ? dataDS[i][1].toString() : "", 
-          sluong: Number(dataDS[i][2]) || 0,
-          trangThai: dataDS[i][4] ? dataDS[i][4].toString().trim() : ""
+    <div class="device-info">
+        <span>Thiết bị: <b id="lblDeviceName">Đang nhận diện...</b></span>
+        <button class="btn-rename" onclick="doiTenThietBi()">(Đổi tên)</button>
+    </div>
+    
+    <div class="mode-container">
+        <button id="btnNhap" class="mode-btn mode-nhap active" onclick="doiCheDo('NHẬP KHO')">NHẬP KHO</button>
+        <button id="btnXuat" class="mode-btn mode-xuat" onclick="doiCheDo('XUẤT KHO')">XUẤT KHO</button>
+        <button id="btnKiem" class="mode-btn mode-kiem" onclick="doiCheDo('KIỂM KHO')">KIỂM KHO</button>
+    </div>
+    
+    <div id="status" class="status-box loading">Đang tải dữ liệu bộ nhớ...</div>
+    <div id="reader"></div>
+    
+    <button id="btnBaoCao" class="btn-action" onclick="chayBaoCaoKetQua()">BẤM XUẤT BÁO CÁO KIỂM KHO</button>
+    <button id="btnDinhKy" class="btn-report" onclick="chayBaoCaoTongHop()">XUẤT BÁO CÁO NHẬP - XUẤT - TỒN</button>
+    
+    <div class="history-title">3 lượt quét gần nhất:</div>
+    <div id="history" class="history-list">
+        <div style="color:#9aa0a6; padding: 25px; text-align:center;">Chưa có dữ liệu quét</div>
+    </div>
+</div>
+
+<script>
+    // =========================================================================
+    // ĐƯỜNG LINK WEB APP CỦA BẠN ĐÃ ĐƯỢC GIỮ NGUYÊN CHUẨN XÁC:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwDoSbWlFHxXqzqyEectYLOEhxTMzj3tTwcrA1Hpd_nrTTcNVe4u3ETni9KIgUpDO8LaA/exec";
+    // =========================================================================
+
+    let currentMode = "NHẬP KHO";
+    let nameThietBi = "";
+    let danhSachGoc = [];
+    let danhSachDaQuetTrongPhien = new Set();
+    let lichSuQuetGanNhat = [];
+    let html5QrcodeScanner = null;
+    let dangXuLyQuet = false;
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function phatTiengBip(duration, frequency, times, delay) {
+        let callback = function() {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = "square"; 
+            osc.frequency.value = frequency;
+            gain.gain.setValueAtTime(1.0, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration/1000);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration/1000);
+        };
+        for (let i = 0; i < times; i++) {
+            setTimeout(callback, i * delay);
+        }
+    }
+
+    function cauHinhTenThietBi() {
+        let savedName = localStorage.getItem("kho_device_name");
+        if (savedName) {
+            nameThietBi = savedName;
+        } else {
+            let userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/android/i.test(userAgent)) {
+                nameThietBi = "Máy_Android";
+            } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                nameThietBi = "Máy_iPhone";
+            } else {
+                nameThietBi = "Máy_Tính_Web";
+            }
+            localStorage.setItem("kho_device_name", nameThietBi);
+        }
+        document.getElementById("lblDeviceName").innerText = nameThietBi;
+    }
+
+    function doiTenThietBi() {
+        let n = prompt("Nhập tên gợi nhớ cho điện thoại này:", nameThietBi);
+        if (n && n.trim() !== "") {
+            nameThietBi = n.trim().replace(/\s+/g, '_');
+            localStorage.setItem("kho_device_name", nameThietBi);
+            document.getElementById("lblDeviceName").innerText = nameThietBi;
+        }
+    }
+
+    function doiCheDo(cheDo) {
+        currentMode = cheDo;
+        document.getElementById("btnNhap").classList.remove("active");
+        document.getElementById("btnXuat").classList.remove("active");
+        document.getElementById("btnKiem").classList.remove("active");
+        document.getElementById("btnBaoCao").style.display = "none";
+        document.getElementById("btnDinhKy").style.display = "none";
+        
+        // GIỮ NGUYÊN DANH SÁCH MÃ ĐÃ QUÉT ĐỂ CHỐNG TRÙNG LẶP KHI CHUYỂN CHẾ ĐỘ
+        
+        if(cheDo === "NHẬP KHO") document.getElementById("btnNhap").classList.add("active");
+        if(cheDo === "XUẤT KHO") document.getElementById("btnXuat").classList.add("active");
+        if(cheDo === "KIỂM KHO") {
+            document.getElementById("btnKiem").classList.add("active");
+            document.getElementById("btnBaoCao").style.display = "block";
+            document.getElementById("btnDinhKy").style.display = "block";
+        }
+        phatTiengBip(80, 800, 1, 0);
+    }
+
+    async function loadDuLieuBanDau() {
+        cauHinhTenThietBi();
+        try {
+            let response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getData`);
+            let resData = await response.json();
+            danhSachGoc = resData.listDS;
+            
+            // TẢI TOÀN BỘ MÃ ĐÃ QUÉT TRÊN KHO VỀ ĐIỆN THOẠI ĐỂ CHỐNG TRÙNG LẶP TUYỆT ĐỐI
+            if (resData.listQR && Array.isArray(resData.listQR)) {
+                resData.listQR.forEach(ma => danhSachDaQuetTrongPhien.add(ma));
+            }
+
+            document.getElementById("status").className = "status-box ready";
+            document.getElementById("status").innerText = "Hệ thống sẵn sàng!";
+            khoiDongCamera();
+        } catch (error) {
+            document.getElementById("status").className = "status-box";
+            document.getElementById("status").style.backgroundColor = "#fce8e6";
+            document.getElementById("status").innerText = "Lỗi mạng! Vui lòng tải lại trang.";
+        }
+    }
+
+    function khoiDongCamera() {
+        html5QrcodeScanner = new Html5Qrcode("reader");
+        html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 230, height: 230 } }, onScanSuccess);
+    }
+
+    async function onScanSuccess(decodedText) {
+        if (dangXuLyQuet) return;
+        dangXuLyQuet = true;
+        
+        let maMaHoa = decodedText.trim();
+        if (danhSachDaQuetTrongPhien.has(maMaHoa)) {
+            phatTiengBip(100, 650, 2, 150);
+            capNhatGiaoDienLichSu("TRÙNG LẶP", "Mã này vừa quét xong", "duplicate-text");
+            setTimeout(() => { dangXuLyQuet = false; }, 2000);
+            return;
+        }
+
+        let phanTu = maMaHoa.split("-");
+        let soHD = phanTu[0] ? phanTu[0].trim() : maMaHoa;
+        let sLuong = phanTu[1] ? Number(phanTu[1].trim()) : 1;
+        let hoTen = phanTu[2] ? phanTu[2].trim() : "Không rõ";
+        let tenTS = phanTu[3] ? phanTu[3].trim() : "Chưa phân loại";
+
+        let trangThaiKhoGoc = danhSachGoc.find(item => item.soHD === soHD);
+        
+        if (currentMode === "NHẬP KHO" && trangThaiKhoGoc && trangThaiKhoGoc.trangThai === "Trong kho") {
+            phatTiengBip(100, 650, 2, 150);
+            capNhatGiaoDienLichSu(soHD, "LỖI: Tài sản đã có trong kho!", "duplicate-text");
+            setTimeout(() => { dangXuLyQuet = false; }, 2000);
+            return;
+        }
+        if (currentMode === "XUẤT KHO" && (!trangThaiKhoGoc || trangThaiKhoGoc.trangThai === "Đã xuất")) {
+            phatTiengBip(100, 650, 2, 150);
+            capNhatGiaoDienLichSu(soHD, "LỖI: Không tìm thấy tồn kho để xuất!", "duplicate-text");
+            setTimeout(() => { dangXuLyQuet = false; }, 2000);
+            return;
+        }
+
+        phatTiengBip(150, 950, 1, 0);
+        danhSachDaQuetTrongPhien.add(maMaHoa);
+        
+        if (currentMode === "NHẬP KHO") danhSachGoc.push({ soHD: soHD, hoten: hoTen, sluong: sLuong, trangThai: "Trong kho" });
+        if (currentMode === "XUẤT KHO" && trangThaiKhoGoc) trangThaiKhoGoc.trangThai = "Đã xuất";
+
+        capNhatGiaoDienLichSu(soHD, `${currentMode} thành công (${sLuong} quyển)`, "success-text");
+
+        let PostURL = GOOGLE_SCRIPT_URL + 
+                      "?maQuet=" + encodeURIComponent(maMaHoa) +
+                      "&thoiGian=" + encodeURIComponent(new Date().toLocaleString("vi-VN")) +
+                      "&email=" + encodeURIComponent(nameThietBi) +
+                      "&soHD=" + encodeURIComponent(soHD) +
+                      "&sluong=" + sLuong +
+                      "&hoten=" + encodeURIComponent(hoTen) +
+                      "&tstc=" + encodeURIComponent(tenTS) +
+                      "&loaiThaoTac=" + encodeURIComponent(currentMode);
+
+        fetch(PostURL, { method: "POST" }).then(() => { dangXuLyQuet = false; }).catch(() => { dangXuLyQuet = false; });
+    }
+
+    function capNhatGiaoDienLichSu(ma, trangThai, classMau) {
+        lichSuQuetGanNhat.unshift({ ma: ma, trangThai: trangThai, classMau: classMau });
+        if (lichSuQuetGanNhat.length > 3) lichSuQuetGanNhat.pop();
+        let htmlContent = "";
+        lichSuQuetGanNhat.forEach(item => {
+            htmlContent += `<div class="history-item">Mã: <b>${item.ma}</b> -> <span class="${item.classMau}">${item.trangThai}</span></div>`;
         });
-      }
+        document.getElementById("history").innerHTML = htmlContent;
     }
-    
-    // CHỈ LẤY CÁC MÃ ĐÃ QUÉT 'KIỂM KHO' ĐỂ CHỐNG TRÙNG DÀNH RIÊNG CHO CHẾ ĐỘ KIỂM KHO
-    var dataQR = sheetQR.getDataRange().getValues();
-    var listQR = [];
-    for (var j = 1; j < dataQR.length; j++) {
-      var thaoTac = dataQR[j][5] ? dataQR[j][5].toString().toUpperCase().trim() : "";
-      if(dataQR[j][0] && thaoTac === "KIỂM KHO") {
-        listQR.push(dataQR[j][0].toString().trim());
-      }
-    }
-    return ContentService.createTextOutput(JSON.stringify({listDS: listDS, listQR: listQR})).setMimeType(ContentService.MimeType.TEXT_PLAIN);
-  }
-  
-  // 2. XUẤT BÁO CÁO KIỂM KHO SANG SHEET 'KetQua'
-  if (action == "tinhKetQua") {
-    var sheetDS = ss.getSheetByName("DanhSach");
-    var sheetQR = ss.getSheetByName("QuetQR");
-    var sheetKQ = ss.getSheetByName("KetQua");
-    
-    var lastRowKQ = sheetKQ.getLastRow();
-    if (lastRowKQ > 1) {
-      sheetKQ.getRange(2, 1, lastRowKQ - 1, 4).clearContent();
-    }
-    
-    var dataDS = sheetDS.getDataRange().getValues();
-    var dataQR = sheetQR.getDataRange().getValues();
-    
-    var danhMucGoc = {};
-    var khoHeThong = {};
-    
-    for (var i = 1; i < dataDS.length; i++) {
-      var soHD = dataDS[i][0].toString().trim();
-      if (soHD) {
-        danhMucGoc[soHD] = dataDS[i][1] || "Không rõ";
-        var tt = dataDS[i][4] ? dataDS[i][4].toString().trim() : "";
-        if (tt === "Trong kho") {
-          khoHeThong[soHD] = { hoten: dataDS[i][1], sluong: Number(dataDS[i][2]) || 0, quetKiemTra: 0 };
+
+    async function chayBaoCaoKetQua() {
+        if (!confirm("Xác nhận đối chiếu dữ liệu đợt KIỂM KHO này?")) return;
+        document.getElementById("status").className = "status-box loading";
+        document.getElementById("status").innerText = "Đang đối chiếu...";
+        try {
+            await fetch(`${GOOGLE_SCRIPT_URL}?action=tinhKetQua`);
+            document.getElementById("status").className = "status-box ready";
+            document.getElementById("status").innerText = `Đã xuất báo cáo!`;
+            alert(`Đã xuất kết quả kiểm kho sang Sheet 'KetQua'.`);
+        } catch (e) {
+            document.getElementById("status").className = "status-box ready";
+            document.getElementById("status").innerText = "Lỗi hệ thống!";
         }
-      }
     }
-    
-    var khoThucTe = {};
-    for (var j = 1; j < dataQR.length; j++) {
-      var thaoTac = dataQR[j][5] ? dataQR[j][5].toString().toUpperCase().trim() : "";
-      if (thaoTac === "KIỂM KHO") {
-        var soHD_QR = dataQR[j][3].toString().trim();
-        var sluong_QR = Number(dataQR[j][4]) || 0;
-        if (soHD_QR) {
-          khoThucTe[soHD_QR] = (khoThucTe[soHD_QR] || 0) + sluong_QR;
-          if (khoHeThong[soHD_QR]) {
-            khoHeThong[soHD_QR].quetKiemTra += sluong_QR;
-          }
+
+    async function chayBaoCaoTongHop() {
+        if (!confirm("Hệ thống sẽ tính toán Nhập-Xuất-Tồn theo mốc thời gian tại H1 và J1 của sheet 'BaoCao'. Xác nhận chạy?")) return;
+        document.getElementById("status").className = "status-box loading";
+        document.getElementById("status").innerText = "Đang tổng hợp số liệu kho...";
+        try {
+            let res = await fetch(`${GOOGLE_SCRIPT_URL}?action=chayBaoCaoDinhKy`);
+            let data = await res.json();
+            document.getElementById("status").className = "status-box ready";
+            if(data.status === "success") {
+                document.getElementById("status").innerText = `Đã tổng hợp xong báo cáo định kỳ!`;
+                alert(`Đã xuất báo cáo Nhập-Xuất-Tồn thành công sang Sheet 'BaoCao'!`);
+            } else {
+                document.getElementById("status").className = "status-box";
+                document.getElementById("status").style.backgroundColor = "#fce8e6";
+                document.getElementById("status").innerText = data.msg;
+                alert(data.msg);
+            }
+        } catch (e) {
+            document.getElementById("status").className = "status-box ready";
+            document.getElementById("status").innerText = "Lỗi hệ thống báo cáo!";
         }
-      }
     }
-    
-    var rowsKQ = [];
-    for (var soHD in khoHeThong) {
-      if (khoHeThong[soHD].quetKiemTra === 0) {
-        rowsKQ.push([soHD, khoHeThong[soHD].hoten, "Thiếu thực tế", "Hệ thống báo 'Trong kho' nhưng kiểm kê không thấy"]);
-      }
-    }
-    for (var soHD_QR in khoThucTe) {
-      if (!khoHeThong[soHD_QR]) {
-        var tenKhach = danhMucGoc[soHD_QR] || "Không rõ";
-        var ghiChu = !danhMucGoc[soHD_QR] ? "Bao này nằm ngoài danh sách tồn kho hiện tại" : "Bao có trong danh sách nhưng trạng thái trên hệ thống không phải 'Trong kho'";
-        rowsKQ.push([soHD_QR, tenKhach, "Thừa hệ thống", ghiChu]);
-      }
-    }
-    
-    if (rowsKQ.length > 0) {
-      sheetKQ.getRange(2, 1, rowsKQ.length, 4).setValues(rowsKQ);
-    }
-    return ContentService.createTextOutput(JSON.stringify({status: "success", count: rowsKQ.length})).setMimeType(ContentService.MimeType.TEXT_PLAIN);
-  }
 
-  // 3. XUẤT BÁO CÁO NHẬP - XUẤT - TỒN DỰA TRÊN MỐC NGÀY TẠI I1 VÀ K1
-  if (action == "chayBaoCaoDinhKy") {
-    var sheetBC = ss.getSheetByName("BaoCao");
-    var sheetQR = ss.getSheetByName("QuetQR");
-    var sheetDS = ss.getSheetByName("DanhSach");
-    
-    var tuNgayStr = sheetBC.getRange("I1").getDisplayValue().toString().trim();
-    var denNgayStr = sheetBC.getRange("K1").getDisplayValue().toString().trim();
-    
-    if(!tuNgayStr || !denNgayStr) {
-      return ContentService.createTextOutput(JSON.stringify({status: "error", msg: "Chưa điền ngày tại I1 hoặc K1"})).setMimeType(ContentService.MimeType.TEXT_PLAIN);
-    }
-    
-    function dateToNumber(str) {
-      var datePart = str.split(" ")[0].includes("/") ? str.split(" ")[0] : str.split(" ")[1];
-      var p = datePart.replace(",", "").split("/");
-      var d = p[0].padStart(2, '0');
-      var m = p[1].padStart(2, '0');
-      var y = p[2];
-      if (y.length < 4) y = "20" + y;
-      return parseInt(y + m + d, 10);
-    }
-    
-    var tuNgayNum = dateToNumber(tuNgayStr);
-    var denNgayNum = dateToNumber(denNgayStr);
-    
-    var lastRow = sheetBC.getLastRow();
-    if (lastRow > 1) {
-      sheetBC.getRange(2, 1, lastRow - 1, 6).clearContent();
-      sheetBC.getRange(2, 1, lastRow - 1, 6).setFontWeight("normal");
-    }
-    
-    var dataDS = sheetDS.getDataRange().getValues();
-    var rangeQR = sheetQR.getDataRange();
-    var dataQRValues = rangeQR.getValues();
-    var dataQRDisplays = rangeQR.getDisplayValues();
-    
-    var mapBaoCao = {};
-    for (var i = 1; i < dataDS.length; i++) {
-      var soHD = dataDS[i][0].toString().trim();
-      if(soHD && !mapBaoCao[soHD]) {
-        mapBaoCao[soHD] = { hoten: dataDS[i][1] || "Không rõ", dauKy: 0, nhapKho: 0, xuatKho: 0 };
-      }
-    }
-    
-    for (var j = 1; j < dataQRValues.length; j++) {
-      var ngayQuetStr = dataQRDisplays[j][1].toString().trim();
-      var soHD_QR = dataQRValues[j][3].toString().trim();
-      var sluong_QR = Number(dataQRValues[j][4]) || 0;
-      var thaoTac = dataQRValues[j][5] ? dataQRValues[j][5].toString().toUpperCase().trim() : "";
-      
-      if (!soHD_QR || !ngayQuetStr) continue;
-      if (thaoTac !== "NHẬP KHO" && thaoTac !== "XUẤT KHO") continue;
-      
-      if (!mapBaoCao[soHD_QR]) {
-        mapBaoCao[soHD_QR] = { hoten: "Mã phát sinh ngoài", dauKy: 0, nhapKho: 0, xuatKho: 0 };
-      }
-      
-      var ngayQuetNum = dateToNumber(ngayQuetStr);
-      
-      if (ngayQuetNum < tuNgayNum) {
-        if (thaoTac === "NHẬP KHO") mapBaoCao[soHD_QR].dauKy += sluong_QR;
-        if (thaoTac === "XUẤT KHO") mapBaoCao[soHD_QR].dauKy -= sluong_QR;
-      } else if (ngayQuetNum >= tuNgayNum && ngayQuetNum <= denNgayNum) {
-        if (thaoTac === "NHẬP KHO") mapBaoCao[soHD_QR].nhapKho += sluong_QR;
-        if (thaoTac === "XUẤT KHO") mapBaoCao[soHD_QR].xuatKho += sluong_QR;
-      }
-    }
-    
-    var rowsBC = [];
-    var tongDauKy = 0, tongNhap = 0, tongXuat = 0, tongCuoiKy = 0;
-    for (var soHD in mapBaoCao) {
-      var item = mapBaoCao[soHD];
-      var cuoiKy = item.dauKy + item.nhapKho - item.xuatKho;
-      
-      if (item.dauKy === 0 && item.nhapKho === 0 && item.xuatKho === 0 && cuoiKy === 0) continue;
-      
-      tongDauKy += item.dauKy; tongNhap += item.nhapKho; tongXuat += item.xuatKho; tongCuoiKy += cuoiKy;
-      rowsBC.push([soHD, item.hoten, item.dauKy, item.nhapKho, item.xuatKho, cuoiKy]);
-    }
-    
-    rowsBC.push(["TỔNG CỘNG", "", tongDauKy, tongNhap, tongXuat, tongCuoiKy]);
-    
-    if (rowsBC.length > 0) {
-      sheetBC.getRange(2, 1, rowsBC.length, 6).setValues(rowsBC);
-      sheetBC.getRange(sheetBC.getLastRow(), 1, 1, 6).setFontWeight("bold");
-    }
-    return ContentService.createTextOutput(JSON.stringify({status: "success", count: rowsBC.length})).setMimeType(ContentService.MimeType.TEXT_PLAIN);
-  }
-}
-
-// 4. LƯU DỮ LIỆU KHI QUÉT TỪ ĐIỆN THOẠI
-function doPost(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheetDS = ss.getSheetByName("DanhSach");
-  var sheetQR = ss.getSheetByName("QuetQR");
-  var p = e.parameter;
-  
-  var maQuet = p.maQuet || "";
-  var thoiGian = p.thoiGian || new Date().toLocaleString("vi-VN");
-  var email = p.email || "Thiết_Bị_Quét";
-  var soHD = p.soHD || "";
-  var sluong = Number(p.sluong) || 1;
-  var loaiThaoTac = p.loaiThaoTac || "";
-  var hoten = p.hoten || "";
-  var tstc = p.tstc || "";
-  
-  sheetQR.appendRow([maQuet, thoiGian, email, soHD, sluong, loaiThaoTac]);
-  
-  var thaoTacXuly = loaiThaoTac.toString().toUpperCase().trim();
-  var dataDS = sheetDS.getDataRange().getValues();
-  
-  if (thaoTacXuly === "NHẬP KHO") {
-    sheetDS.appendRow([soHD, hoten, sluong, tstc, "Trong kho", thoiGian, maQuet, "", ""]);
-  } else if (thaoTacXuly === "XUẤT KHO") {
-    for (var i = 1; i < dataDS.length; i++) {
-      if (dataDS[i][0].toString().trim() === soHD.toString().trim() && dataDS[i][4].toString().trim() === "Trong kho") {
-        sheetDS.getRange(i + 1, 5).setValue("Đã xuất");
-        sheetDS.getRange(i + 1, 6).setValue(thoiGian);
-        break;
-      }
-    }
-  }
-  return ContentService.createTextOutput(JSON.stringify({status: "success"})).setMimeType(ContentService.MimeType.TEXT_PLAIN);
-}
-
-// =========================================================================
-// 5. HÀM TỰ ĐỘNG SAO LƯU FILE SANG GOOGLE DRIVE LÚC 15H45 HÀNG NGÀY
-// =========================================================================
-function tuDongSaoLuuFile() {
-  // Thay ID thư mục Drive của bạn tại đây
-  var THU_MUC_BACKUP_ID = "1Gj2Kf6ALtoFJ30IO7GgPbs5dPQlhAkP9";
-  
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var fileGoc = DriveApp.getFileById(ss.getId());
-  var thuMucLuu = DriveApp.getFolderById(THU_MUC_BACKUP_ID);
-  
-  var chuoiThoiGian = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyyMMdd_HHmmss");
-  var tenFileMoi = fileGoc.getName() + "_" + chuoiThoiGian;
-  
-  fileGoc.makeCopy(tenFileMoi, thuMucLuu);
-  Logger.log("Đã sao lưu file thành công: " + tenFileMoi);
-}
-
-function thietLapThoiGianSaoLuu() {
-  var triggers = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === "tuDongSaoLuuFile") {
-      ScriptApp.deleteTrigger(triggers[i]);
-    }
-  }
-  ScriptApp.newTrigger("tuDongSaoLuuFile")
-           .timeBased()
-           .everyDays(1)
-           .atHour(15)
-           .create();
-           
-  Logger.log("Đã thiết lập bộ hẹn giờ thành công!");
-}
+    window.onload = loadDuLieuBanDau;
+</script>
+</body>
+</html>
